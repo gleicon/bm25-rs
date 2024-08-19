@@ -4,7 +4,7 @@ This repository contains a Rust implementation of the BM25S algorithm, optimized
 
 This is an experimental work based on [BM25 sparse](https://github.com/xhluca/bm25s) and [BMX](https://www.mixedbread.ai/blog/intro-bmx)
 
-
+[![Rust](https://github.com/gleicon/bm25-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/gleicon/bm25-rs/actions/workflows/rust.yml)
 
 
 ## Features
