@@ -18,7 +18,7 @@ This is an experimental work based on [BM25 sparse](https://github.com/xhluca/bm
 Clone the repository and use Cargo to build the project:
 
 ```bash
-git clone https://github.com/yourusername/bm25s-rust.git
+git clone https://github.com/yourusername/bm25s-rs.git
 cd bm25s-rs
 cargo build
 
