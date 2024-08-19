@@ -1,13 +1,16 @@
 extern crate nalgebra as na;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::{Read, Write};
 
+#[derive(Serialize, Deserialize)]
 pub struct BM25S {
     pub sparse_matrix: HashMap<usize, Vec<(usize, f64)>>, // term_index -> Vec<(doc_index, score)>
-    doc_lengths: Vec<f64>,  // Stores the length of each document
-    avg_doc_length: f64,    // Average document length
-    doc_count: usize,       // Total number of documents
-    k1: f64,                // BM25 parameter
-    b: f64,                 // BM25 parameter
+    doc_lengths: Vec<f64>,                                // Stores the length of each document
+    avg_doc_length: f64,                                  // Average document length
+    doc_count: usize,                                     // Total number of documents
+    k1: f64,                                              // BM25 parameter
+    b: f64,                                               // BM25 parameter
 }
 
 impl BM25S {
@@ -25,13 +28,21 @@ impl BM25S {
     pub fn index(&mut self, term_freqs: Vec<Vec<(usize, f64)>>, idf: Vec<f64>) {
         for (doc_id, terms) in term_freqs.iter().enumerate() {
             for &(term_id, tf) in terms {
-                let len_d = self.doc_lengths[doc_id];
-                let score = (tf * idf[term_id]) / (tf + self.k1 * (1.0 - self.b + self.b * (len_d / self.avg_doc_length)));
-                
-                self.sparse_matrix
-                    .entry(term_id)
-                    .or_insert_with(Vec::new)
-                    .push((doc_id, score));
+                if term_id < idf.len() {
+                    let len_d = self.doc_lengths[doc_id];
+                    let score = (tf * idf[term_id])
+                        / (tf + self.k1 * (1.0 - self.b + self.b * (len_d / self.avg_doc_length)));
+
+                    self.sparse_matrix
+                        .entry(term_id)
+                        .or_insert_with(Vec::new)
+                        .push((doc_id, score));
+                } else {
+                    println!(
+                        "Warning: term_id {} is out of bounds for idf vector.",
+                        term_id
+                    );
+                }
             }
         }
     }
@@ -55,36 +66,65 @@ impl BM25S {
     }
 
     pub fn save(&self, path: &str) {
-        // Placeholder for saving the model to disk
-        // You would typically serialize the sparse_matrix and other relevant fields
+        let mut file = std::fs::File::create(path).unwrap();
+        let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+        file.write_all(&encoded).unwrap();
     }
 
     pub fn load(path: &str) -> Self {
-        // Placeholder for loading the model from disk
-        // You would deserialize the data into a BM25S object
-        BM25S::new(4, 8.0, 1.5, 0.75) // Example placeholder return value
+        let mut file = std::fs::File::open(path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+        bincode::deserialize(&buffer).unwrap()
     }
 }
 
-pub fn tokenize_corpus(corpus: &[&str]) -> Vec<Vec<(usize, f64)>> {
-    // Simplified tokenizer: splits by whitespace and assigns a dummy tf value
-    corpus
+// Function to calculate IDF values
+pub fn calculate_idf(corpus_tokens: &Vec<Vec<(usize, f64)>>, vocab_size: usize) -> Vec<f64> {
+    let mut df = vec![0; vocab_size];
+    let num_docs = corpus_tokens.len() as f64;
+
+    for doc in corpus_tokens {
+        let mut seen_terms = vec![false; vocab_size];
+        for &(term_id, _) in doc {
+            if !seen_terms[term_id] {
+                df[term_id] += 1;
+                seen_terms[term_id] = true;
+            }
+        }
+    }
+
+    df.iter()
+        .map(|&n| ((num_docs - n as f64 + 0.5) / (n as f64 + 0.5)).ln() + 1.0)
+        .collect()
+}
+
+pub fn tokenize_corpus(corpus: &[&str]) -> (Vec<Vec<(usize, f64)>>, HashMap<String, usize>) {
+    let mut term_to_id = HashMap::new();
+    let mut id_counter = 0;
+
+    let corpus_tokens = corpus
         .iter()
         .map(|doc| {
             doc.split_whitespace()
-                .enumerate()
-                .map(|(i, _word)| (i, 1.0)) // Assigning 1.0 as a dummy term frequency
-                .collect()
+                .map(|word| {
+                    let term_id = *term_to_id.entry(word.to_string()).or_insert_with(|| {
+                        let id = id_counter;
+                        id_counter += 1;
+                        id
+                    });
+                    (term_id, 1.0) // Simplified term frequency as 1.0
+                })
+                .collect::<Vec<(usize, f64)>>()
         })
-        .collect()
+        .collect();
+
+    (corpus_tokens, term_to_id)
 }
 
-pub fn tokenize_query(query: &str) -> Vec<usize> {
-    // Simplified tokenizer: splits by whitespace and converts to term ids
+pub fn tokenize_query(query: &str, term_to_id: &HashMap<String, usize>) -> Vec<usize> {
     query
         .split_whitespace()
-        .enumerate()
-        .map(|(i, _word)| i)
+        .filter_map(|word| term_to_id.get(word).cloned())
         .collect()
 }
-
