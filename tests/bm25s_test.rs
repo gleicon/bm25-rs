@@ -11,9 +11,11 @@ fn test_bm25_with_corpus() {
 
     // Tokenize the corpus and get the term_to_id mapping
     let (corpus_tokens, term_to_id) = tokenize_corpus(&corpus);
+    println!("corpus_tokens: {:?}", corpus_tokens);
 
     // Calculate IDF
     let idf = calculate_idf(&corpus_tokens, term_to_id.len());
+    println!("idf: {:?}", idf);
 
     // Create BM25 model
     let doc_count = corpus.len();
@@ -32,12 +34,14 @@ fn test_bm25_with_corpus() {
     // Tokenize the query using the same term_to_id mapping
     let query = "does the fish purr like a cat?";
     let query_tokens = tokenize_query(query, &term_to_id);
-
+    println!("{:?}. query_tokens: {:?}", query, query_tokens);
     // Get scores
     let scores = bm25s.query(query_tokens);
+    println!("scores: {:?}", scores);
 
     // Get top-k results
     let top_k_results = bm25s.top_k(scores, 2);
+    println!("top_k: {:?}", top_k_results);
 
     for (i, (doc_id, score)) in top_k_results.iter().enumerate() {
         println!("Rank {} (score: {:.2}): {}", i + 1, score, corpus[*doc_id]);
@@ -47,7 +51,10 @@ fn test_bm25_with_corpus() {
     let reloaded_bm25s = BM25S::load("animal_index_bm25");
 
     let reloaded_scores = reloaded_bm25s.query(tokenize_query(query, &term_to_id));
+    println!("reloaded scores: {:?}", reloaded_scores);
+
     let reloaded_top_k_results = reloaded_bm25s.top_k(reloaded_scores, 2);
+    println!("reloaded top_k: {:?}", reloaded_top_k_results);
 
     assert_eq!(top_k_results, reloaded_top_k_results);
 }

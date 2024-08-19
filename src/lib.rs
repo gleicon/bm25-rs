@@ -3,6 +3,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 
+// Type alias for tokenized document
+pub type TokenizedDoc = Vec<(usize, f64)>;
+
+// Type alias for the entire tokenized corpus
+pub type TokenizedCorpus = Vec<TokenizedDoc>;
+
+// Type alias for the mapping from term to its unique ID
+pub type TermIdMap = HashMap<String, usize>;
+
 #[derive(Serialize, Deserialize)]
 pub struct BM25S {
     pub sparse_matrix: HashMap<usize, Vec<(usize, f64)>>, // term_index -> Vec<(doc_index, score)>
@@ -25,7 +34,7 @@ impl BM25S {
         }
     }
 
-    pub fn index(&mut self, term_freqs: Vec<Vec<(usize, f64)>>, idf: Vec<f64>) {
+    pub fn index(&mut self, term_freqs: TokenizedCorpus, idf: Vec<f64>) {
         for (doc_id, terms) in term_freqs.iter().enumerate() {
             for &(term_id, tf) in terms {
                 if term_id < idf.len() {
@@ -35,7 +44,7 @@ impl BM25S {
 
                     self.sparse_matrix
                         .entry(term_id)
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push((doc_id, score));
                 } else {
                     println!(
@@ -80,7 +89,7 @@ impl BM25S {
 }
 
 // Function to calculate IDF values
-pub fn calculate_idf(corpus_tokens: &Vec<Vec<(usize, f64)>>, vocab_size: usize) -> Vec<f64> {
+pub fn calculate_idf(corpus_tokens: &TokenizedCorpus, vocab_size: usize) -> Vec<f64> {
     let mut df = vec![0; vocab_size];
     let num_docs = corpus_tokens.len() as f64;
 
@@ -99,7 +108,7 @@ pub fn calculate_idf(corpus_tokens: &Vec<Vec<(usize, f64)>>, vocab_size: usize) 
         .collect()
 }
 
-pub fn tokenize_corpus(corpus: &[&str]) -> (Vec<Vec<(usize, f64)>>, HashMap<String, usize>) {
+pub fn tokenize_corpus(corpus: &[&str]) -> (TokenizedCorpus, TermIdMap) {
     let mut term_to_id = HashMap::new();
     let mut id_counter = 0;
 
@@ -115,9 +124,9 @@ pub fn tokenize_corpus(corpus: &[&str]) -> (Vec<Vec<(usize, f64)>>, HashMap<Stri
                     });
                     (term_id, 1.0) // Simplified term frequency as 1.0
                 })
-                .collect::<Vec<(usize, f64)>>()
+                .collect::<TokenizedDoc>()
         })
-        .collect();
+        .collect::<TokenizedCorpus>();
 
     (corpus_tokens, term_to_id)
 }
